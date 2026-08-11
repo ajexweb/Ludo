@@ -1,5 +1,5 @@
 // ==========================================
-// LUDO PLUS - MASTER GAME ENGINE
+// LUDO PLUS - MASTER GAME ENGINE (FIXED)
 // ==========================================
 
 import { auth, db } from './firebase-config.js';
@@ -19,15 +19,13 @@ let gameState = null;
 let localTurnProcessed = false;
 
 // --- Ludo Board Math (15x15 Grid mapped to X,Y) ---
-// Classic Ludo Main Ring Coordinates (0 to 51)
 const MAIN_PATH = [
-    [6,13], [6,12], [6,11], [6,10], [6,9], [5,8], [4,8], [3,8], [2,8], [1,8], [0,8], [0,7], [0,6], // Red to Green
-    [1,6], [2,6], [3,6], [4,6], [5,6], [6,5], [6,4], [6,3], [6,2], [6,1], [6,0], [7,0], [8,0],    // Green to Gray
-    [8,1], [8,2], [8,3], [8,4], [8,5], [9,6], [10,6], [11,6], [12,6], [13,6], [14,6], [14,7], [14,8], // Gray to Blue
-    [13,8], [12,8], [11,8], [10,8], [9,8], [8,9], [8,10], [8,11], [8,12], [8,13], [8,14], [7,14], [6,14] // Blue to Red
+    [6,13], [6,12], [6,11], [6,10], [6,9], [5,8], [4,8], [3,8], [2,8], [1,8], [0,8], [0,7], [0,6], 
+    [1,6], [2,6], [3,6], [4,6], [5,6], [6,5], [6,4], [6,3], [6,2], [6,1], [6,0], [7,0], [8,0],    
+    [8,1], [8,2], [8,3], [8,4], [8,5], [9,6], [10,6], [11,6], [12,6], [13,6], [14,6], [14,7], [14,8], 
+    [13,8], [12,8], [11,8], [10,8], [9,8], [8,9], [8,10], [8,11], [8,12], [8,13], [8,14], [7,14], [6,14] 
 ];
 
-// Home Paths (5 steps each)
 const HOME_PATHS = {
     RED: [[7,13], [7,12], [7,11], [7,10], [7,9], [7,8]],
     BLUE: [[13,7], [12,7], [11,7], [10,7], [9,7], [8,7]],
@@ -35,13 +33,9 @@ const HOME_PATHS = {
     GREEN: [[1,7], [2,7], [3,7], [4,7], [5,7], [6,7]]
 };
 
-// Start Positions (Index in MAIN_PATH)
 const START_INDEX = { RED: 0, GREEN: 13, GRAY: 26, BLUE: 39 };
-
-// Safe Zones (Main Path Indexes)
 const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
 
-// Base Token Offsets (For visually placing 4 tokens in Home)
 const HOME_BASES = {
     RED: [[2,11], [3,11], [2,12], [3,12]],
     BLUE: [[11,11], [12,11], [11,12], [12,12]],
@@ -49,11 +43,11 @@ const HOME_BASES = {
     GRAY: [[11,2], [12,2], [11,3], [12,3]]
 };
 
-// Player Turn Sequence
 const TURN_SEQUENCE_4P = ['RED', 'GREEN', 'GRAY', 'BLUE'];
 const TURN_SEQUENCE_2P = ['RED', 'BLUE'];
 
-// --- DOM Elements ---
+// --- DOM Elements (FIXED: appContainer added) ---
+const appContainer = document.getElementById('app-container'); 
 const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen = document.getElementById('game-screen');
 const gameLoader = document.getElementById('game-loader');
@@ -87,12 +81,11 @@ function fetchUserData() {
 function initLobby() {
     gameLoader.classList.add('hidden');
     lobbyScreen.classList.remove('hidden');
-    appContainer.classList.remove('hidden');
+    appContainer.classList.remove('hidden'); // Ye pehle crash kar raha tha
     document.getElementById('lobby-room-id').innerText = roomId;
 
     const roomRef = ref(db, `rooms/${roomId}`);
     
-    // Join logic
     runTransaction(roomRef, (room) => {
         if (room) {
             if (!room.players[currentUser.uid]) {
@@ -114,7 +107,6 @@ function initLobby() {
         return room;
     }).then((res) => {
         if(res.committed) {
-            // Listen for room updates
             onValue(roomRef, (snap) => {
                 const roomData = snap.val();
                 if (!roomData) return;
@@ -123,7 +115,6 @@ function initLobby() {
                 myColor = roomData.players[currentUser.uid].color;
                 updateLobbyUI(roomData);
 
-                // Auto redirect to match if started
                 if (roomData.status === 'STARTED' && roomData.matchId) {
                     window.location.replace(`game.html?matchId=${roomData.matchId}`);
                 }
@@ -131,13 +122,11 @@ function initLobby() {
         }
     });
 
-    // Copy ID Button
     document.getElementById('btn-copy-id').addEventListener('click', () => {
         navigator.clipboard.writeText(roomId);
         window.showToast("Room ID Copied!");
     });
 
-    // Start Match Button (Host Only)
     document.getElementById('btn-start-match').addEventListener('click', () => {
         startMatchExecution();
     });
@@ -172,15 +161,14 @@ function updateLobbyUI(roomData) {
 }
 
 // ==========================================
-// 2. MATCH START & COIN DEDUCTION (ATOMIC)
+// 2. MATCH START & COIN DEDUCTION
 // ==========================================
 function startMatchExecution() {
     gameLoader.querySelector('#game-loader-text').innerText = "Processing Entry Fee...";
     gameLoader.classList.remove('hidden');
     
-    // Check if host has coins
     if(userData.coins < 50) {
-        window.showToast("Insufficient Coins!");
+        alert("Insufficient Coins! Add balance to play.");
         gameLoader.classList.add('hidden');
         return;
     }
@@ -192,9 +180,8 @@ function startMatchExecution() {
         const roomData = snap.val();
         const tokens = {};
         
-        // Initialize exactly 4 tokens per player
         Object.values(roomData.players).forEach(p => {
-            tokens[p.color] = [-1, -1, -1, -1]; // -1 means in base
+            tokens[p.color] = [-1, -1, -1, -1]; 
         });
 
         const matchData = {
@@ -203,16 +190,12 @@ function startMatchExecution() {
             status: 'PLAYING',
             players: roomData.players,
             tokens: tokens,
-            currentTurn: 'RED', // Red starts
+            currentTurn: 'RED',
             diceValue: 0,
             winner: null,
             createdAt: serverTimestamp()
         };
 
-        // Batch Transaction equivalent (Deduct coins for Host first, logic simplified for client-auth)
-        // Note: Realistically in client-side Firebase, each player should deduct their own on match load,
-        // but for smooth UX, we write the match, and on load, clients deduct if not deducted.
-        
         set(ref(db, `matches/${newMatchId}`), matchData).then(() => {
             update(roomRef, { status: 'STARTED', matchId: newMatchId });
         });
@@ -224,8 +207,6 @@ function startMatchExecution() {
 // ==========================================
 function initMatchSync(mId) {
     appContainer.classList.remove('hidden');
-    
-    // Render Static Board UI
     drawBoardGrid();
 
     const matchRef = ref(db, `matches/${mId}`);
@@ -237,10 +218,8 @@ function initMatchSync(mId) {
         gameState = data;
         myColor = data.players[currentUser.uid]?.color || null;
 
-        // Entry Fee Deduction Check
         deductEntryFeeOnce(mId);
 
-        // Update UI
         gameLoader.classList.add('hidden');
         lobbyScreen.classList.add('hidden');
         gameScreen.classList.remove('hidden');
@@ -250,7 +229,6 @@ function initMatchSync(mId) {
         renderTokensOnBoard();
         handleTurnUI();
         
-        // Check win condition
         if(data.winner && data.winner === myColor) {
             document.getElementById('modal-match-result').classList.remove('hidden');
         }
@@ -261,14 +239,11 @@ function deductEntryFeeOnce(mId) {
     const feeRef = ref(db, `matches/${mId}/feePaid/${currentUser.uid}`);
     get(feeRef).then(snap => {
         if(!snap.exists()) {
-            // Deduct 50 coins safely
             const userCoinRef = ref(db, `users/${currentUser.uid}/coins`);
             runTransaction(userCoinRef, (currentCoins) => {
                 return (currentCoins || 0) >= 50 ? currentCoins - 50 : currentCoins;
             }).then(() => {
                 set(feeRef, true);
-                
-                // Ledger entry
                 push(ref(db, 'walletTransactions'), {
                     uid: currentUser.uid,
                     type: 'MATCH_ENTRY',
@@ -288,7 +263,6 @@ function drawBoardGrid() {
     const board = document.getElementById('ludo-board');
     board.innerHTML = '';
     
-    // Draw 15x15 Cells
     for(let r = 0; r < 15; r++) {
         for(let c = 0; c < 15; c++) {
             const cell = document.createElement('div');
@@ -296,18 +270,15 @@ function drawBoardGrid() {
             cell.style.border = '1px solid #ddd';
             cell.style.position = 'relative';
             
-            // Home areas styling
             if(r < 6 && c < 6) cell.style.backgroundColor = 'var(--ludo-green)';
             if(r < 6 && c > 8) cell.style.backgroundColor = 'var(--ludo-gray)';
             if(r > 8 && c < 6) cell.style.backgroundColor = 'var(--ludo-red)';
             if(r > 8 && c > 8) cell.style.backgroundColor = 'var(--ludo-blue)';
 
-            // Center Area
             if(r > 5 && r < 9 && c > 5 && c < 9) cell.style.backgroundColor = '#222';
 
-            // Safe zones (Stars could be SVG, keeping it simple colored)
             const isSafe = SAFE_ZONES.some(index => MAIN_PATH[index][0] === c && MAIN_PATH[index][1] === r);
-            if(isSafe) cell.style.backgroundColor = '#e2e8f0'; // Grayish Safe Cell
+            if(isSafe) cell.style.backgroundColor = '#e2e8f0';
 
             board.appendChild(cell);
         }
@@ -326,30 +297,25 @@ function updatePlayersUI() {
 }
 
 function renderTokensOnBoard() {
-    // Clear previous tokens
     document.querySelectorAll('.goti').forEach(e => e.remove());
 
     Object.keys(gameState.tokens).forEach(color => {
-        const positions = gameState.tokens[color]; // Array of 4 (e.g. [-1, 5, 52, 58])
+        const positions = gameState.tokens[color];
         
         positions.forEach((pos, idx) => {
             let x, y;
             if (pos === -1) {
-                // In Home Base
                 x = HOME_BASES[color][idx][0];
                 y = HOME_BASES[color][idx][1];
             } else if (pos < 52) {
-                // Main Ring (Relative to color's start)
                 let actualIndex = (START_INDEX[color] + pos) % 52;
                 x = MAIN_PATH[actualIndex][0];
                 y = MAIN_PATH[actualIndex][1];
             } else if (pos < 58) {
-                // Home Path
                 let homeIdx = pos - 52;
                 x = HOME_PATHS[color][homeIdx][0];
                 y = HOME_PATHS[color][homeIdx][1];
             } else {
-                // Finished (Don't render or render in center)
                 return;
             }
 
@@ -368,7 +334,6 @@ function renderTokensOnBoard() {
                 token.style.cursor = 'pointer';
                 token.style.zIndex = 10;
                 
-                // Add click event if it's my turn
                 if (gameState.currentTurn === myColor && color === myColor && gameState.diceValue > 0) {
                     token.style.boxShadow = '0 0 10px #FFF';
                     token.onclick = () => handleTokenMove(color, idx, pos);
@@ -381,20 +346,16 @@ function renderTokensOnBoard() {
 }
 
 // ==========================================
-// 5. TURN & DICE LOGIC (Admin Control Hook)
+// 5. TURN & DICE LOGIC 
 // ==========================================
 function handleTurnUI() {
-    // Reset highlights
     document.querySelectorAll('.player-profile').forEach(el => el.classList.remove('active-turn'));
     
-    // Highlight Current Turn
     const activeProfile = document.getElementById(`profile-${gameState.currentTurn.toLowerCase()}`);
     if(activeProfile) activeProfile.classList.add('active-turn');
 
-    // Dice Render
     renderDice(gameState.currentTurn, gameState.diceValue);
 
-    // If it's my turn and dice not rolled
     if (gameState.currentTurn === myColor && gameState.diceValue === 0) {
         const diceBox = document.getElementById(`dice-${myColor.toLowerCase()}`);
         diceBox.style.cursor = 'pointer';
@@ -406,41 +367,35 @@ function renderDice(color, value) {
     const diceBox = document.getElementById(`dice-${color.toLowerCase()}`);
     if(!diceBox) return;
     
-    // Dice SVGs (1 to 6) mapped roughly
-    const diceSVG = value > 0 ? `<svg viewBox="0 0 24 24"><text x="12" y="16" font-size="14" text-anchor="middle" font-weight="bold">${value}</text></svg>` : `<span style="font-size:10px;">ROLL</span>`;
+    const diceSVG = value > 0 ? `<svg viewBox="0 0 24 24"><text x="12" y="16" font-size="14" fill="white" text-anchor="middle" font-weight="bold">${value}</text></svg>` : `<span style="font-size:10px; color:white;">ROLL</span>`;
     
     diceBox.innerHTML = diceSVG;
-    diceBox.onclick = null; // reset
+    diceBox.onclick = null; 
 }
 
 function rollDice() {
     if(gameState.currentTurn !== myColor || gameState.diceValue !== 0) return;
     
     const diceBox = document.getElementById(`dice-${myColor.toLowerCase()}`);
-    diceBox.innerHTML = `<span style="font-size:10px;">...</span>`; // Rolling anim
+    diceBox.innerHTML = `<span style="font-size:10px; color:white;">...</span>`; 
 
-    // Check for Admin Pending Command
     const commandRef = ref(db, `matches/${matchId}/adminCommand/${myColor}`);
     get(commandRef).then((snap) => {
         let finalDice = 0;
         
         if (snap.exists() && snap.val() !== null) {
-            // Use Admin Command
             finalDice = snap.val();
             update(ref(db, `matches/${matchId}`), { 
-                [`adminCommand/${myColor}`]: null // Consume command
+                [`adminCommand/${myColor}`]: null 
             });
         } else {
-            // Normal Random (1-6)
             finalDice = Math.floor(Math.random() * 6) + 1;
         }
 
-        // Send to Firebase
         update(ref(db, `matches/${matchId}`), {
             diceValue: finalDice,
             lastAction: serverTimestamp()
         }).then(() => {
-            // Automatically check if move is possible, if not, skip turn
             setTimeout(() => checkMovePossibility(finalDice), 500);
         });
     });
@@ -451,12 +406,12 @@ function checkMovePossibility(dice) {
     let canMove = false;
 
     myTokens.forEach(pos => {
-        if (pos === -1 && dice === 6) canMove = true; // Can exit home
-        if (pos !== -1 && pos + dice <= 57) canMove = true; // Can move on board
+        if (pos === -1 && dice === 6) canMove = true; 
+        if (pos !== -1 && pos + dice <= 57) canMove = true; 
     });
 
     if (!canMove) {
-        window.showToast("No valid moves!");
+        alert("No valid moves! Turn passed.");
         setTimeout(passTurn, 1000);
     }
 }
@@ -471,23 +426,20 @@ function handleTokenMove(color, tIndex, currentPos) {
     let newPos = currentPos;
 
     if (currentPos === -1) {
-        if (dice === 6) newPos = 0; // Exit home to start position (relative 0)
-        else return; // Invalid click
+        if (dice === 6) newPos = 0; 
+        else return; 
     } else {
         newPos = currentPos + dice;
-        if (newPos > 57) return; // Cannot move past finish
+        if (newPos > 57) return; 
     }
 
-    // 1. Check Capture Logic
     let tokensUpdates = { ...gameState.tokens };
     let captured = false;
     
     if (newPos < 52 && currentPos !== -1) {
         let globalNewPos = (START_INDEX[color] + newPos) % 52;
         
-        // Is it a safe zone?
         if (!SAFE_ZONES.includes(globalNewPos)) {
-            // Check other players' tokens
             Object.keys(tokensUpdates).forEach(otherCol => {
                 if (otherCol !== color) {
                     tokensUpdates[otherCol] = tokensUpdates[otherCol].map(otherPos => {
@@ -495,7 +447,7 @@ function handleTokenMove(color, tIndex, currentPos) {
                             let otherGlobalPos = (START_INDEX[otherCol] + otherPos) % 52;
                             if (otherGlobalPos === globalNewPos) {
                                 captured = true;
-                                return -1; // Send back to base
+                                return -1; 
                             }
                         }
                         return otherPos;
@@ -505,15 +457,12 @@ function handleTokenMove(color, tIndex, currentPos) {
         }
     }
 
-    // Apply movement
     tokensUpdates[color][tIndex] = newPos;
-
-    // Check Win Condition (All 4 tokens at 57)
     const isWinner = tokensUpdates[color].every(p => p === 57);
 
     let updates = {
         tokens: tokensUpdates,
-        diceValue: 0 // Reset dice for next turn
+        diceValue: 0 
     };
 
     if (isWinner) {
@@ -521,7 +470,6 @@ function handleTokenMove(color, tIndex, currentPos) {
         updates.status = 'FINISHED';
         processWinReward(color);
     } else {
-        // Next Turn Logic (Rule: If 6 or capture, get another turn)
         if (dice !== 6 && !captured) {
             updates.currentTurn = getNextTurn(color);
         }
@@ -545,7 +493,6 @@ function passTurn() {
 
 function processWinReward(winnerColor) {
     if (myColor === winnerColor) {
-        // Run atomic transaction to add 80 coins
         runTransaction(ref(db, `users/${currentUser.uid}/coins`), (coins) => {
             return (coins || 0) + 80;
         }).then(() => {
@@ -556,12 +503,11 @@ function processWinReward(winnerColor) {
                 reference: matchId,
                 timestamp: serverTimestamp()
             });
-            window.showToast("Victory! +80 Coins added.");
+            alert("Victory! +80 Coins added.");
         });
     }
 }
 
-// Exit Game Handler
 document.getElementById('btn-exit-game').addEventListener('click', () => {
     if(confirm("Are you sure? You will lose your 50 Coins entry fee.")) {
         window.location.replace('index.html');

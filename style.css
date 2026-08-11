@@ -1,0 +1,480 @@
+/* =========================================
+   LUDO PLUS - PREMIUM MASTER STYLESHEET
+========================================= */
+
+/* --- CSS Variables (Colors, Spacing, Game Variables) --- */
+:root {
+    /* App Theme Colors */
+    --bg-primary: #0F172A; /* Slate 900 - Deep Premium Dark */
+    --bg-secondary: #1E293B; /* Slate 800 - Cards/Panels */
+    --bg-tertiary: #334155;
+    
+    /* Accents & Text */
+    --accent-gold: #F59E0B; /* Coin/Premium Accent */
+    --accent-gold-glow: rgba(245, 158, 11, 0.4);
+    --text-main: #F8FAFC;
+    --text-muted: #94A3B8;
+    
+    /* Core Ludo Game Colors */
+    --ludo-red: #EF4444;
+    --ludo-blue: #3B82F6;
+    --ludo-green: #10B981;
+    --ludo-gray: #64748B;
+    
+    /* Utility */
+    --border-radius-sm: 8px;
+    --border-radius-md: 12px;
+    --border-radius-lg: 16px;
+    --transition-speed: 0.3s;
+    --app-max-width: 480px; /* Mobile-first container max width */
+}
+
+/* --- Base & Reset --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+    -webkit-tap-highlight-color: transparent; /* Removes mobile tap flash */
+}
+
+body, html {
+    width: 100%;
+    min-height: 100vh;
+    background-color: #000000; /* Darkest background for out-of-bounds */
+    color: var(--text-main);
+    overflow-x: hidden;
+    user-select: none; /* Prevents accidental text selection while playing */
+}
+
+/* --- App Container (Mobile App Feel on Desktop) --- */
+#app-container {
+    max-width: var(--app-max-width);
+    margin: 0 auto;
+    min-height: 100vh;
+    background-color: var(--bg-primary);
+    position: relative;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 70px; /* Space for bottom nav */
+}
+
+/* --- Utility Classes --- */
+.hidden { display: none !important; }
+.text-center { text-align: center; }
+.text-green { color: var(--ludo-green) !important; }
+.text-red { color: var(--ludo-red) !important; }
+.mt-10 { margin-top: 10px; }
+
+/* --- Splash / Loading Screen --- */
+#splash-screen {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-color: var(--bg-primary);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    transition: opacity 0.5s ease-out;
+}
+
+#splash-screen.active {
+    opacity: 1;
+}
+
+.logo-container {
+    text-align: center;
+}
+
+.logo-text {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+}
+
+.logo-text span {
+    color: var(--accent-gold);
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--bg-tertiary);
+    border-top: 4px solid var(--accent-gold);
+    border-radius: 50%;
+    margin: 0 auto 15px auto;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* --- Top Header --- */
+.top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background: linear-gradient(to bottom, rgba(15, 23, 42, 1), rgba(15, 23, 42, 0));
+}
+
+.brand h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.wallet-badge {
+    display: flex;
+    align-items: center;
+    background-color: var(--bg-secondary);
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--bg-tertiary);
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s;
+}
+
+.wallet-badge:active { transform: scale(0.95); }
+
+.wallet-badge svg {
+    width: 18px;
+    height: 18px;
+    margin-right: 6px;
+}
+
+#user-balance {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--accent-gold);
+    margin-right: 8px;
+}
+
+.add-icon {
+    background-color: var(--ludo-green);
+    color: white;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* --- Player Profile Card --- */
+.player-card {
+    display: flex;
+    align-items: center;
+    margin: 10px 20px 25px 20px;
+    padding: 15px;
+    background-color: var(--bg-secondary);
+    border-radius: var(--border-radius-lg);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.player-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: var(--bg-tertiary);
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 15px;
+    color: var(--text-muted);
+}
+
+.player-avatar svg { width: 28px; height: 28px; }
+
+.player-info h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.player-id {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* --- Action Buttons (Main Menu) --- */
+.game-modes {
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.action-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 18px 20px;
+    border-radius: var(--border-radius-md);
+    border: none;
+    outline: none;
+    cursor: pointer;
+    transition: all var(--transition-speed);
+}
+
+.action-btn:active { transform: scale(0.98); }
+
+.btn-icon {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 15px;
+}
+
+.btn-icon svg { width: 24px; height: 24px; }
+
+.btn-text { text-align: left; }
+.btn-text h4 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+.btn-text p { font-size: 12px; opacity: 0.8; }
+
+/* Primary Button (Play Online) */
+.primary-btn {
+    background: linear-gradient(135deg, var(--ludo-blue), #2563EB);
+    color: white;
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+.primary-btn .btn-icon { background: rgba(255, 255, 255, 0.2); }
+
+/* Secondary Button (Rooms) */
+.secondary-btn {
+    background-color: var(--bg-secondary);
+    color: var(--text-main);
+    border: 1px solid var(--bg-tertiary);
+}
+.secondary-btn .btn-icon {
+    background-color: var(--bg-tertiary);
+    color: var(--accent-gold);
+}
+
+/* Direct standard button inside modals */
+button.primary-btn.mt-10 {
+    justify-content: center;
+    padding: 12px;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+/* --- Bottom Navigation --- */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    max-width: var(--app-max-width);
+    background-color: var(--bg-secondary);
+    display: flex;
+    justify-content: space-around;
+    padding: 12px 0 15px 0;
+    border-top: 1px solid var(--bg-tertiary);
+    border-radius: 20px 20px 0 0;
+    z-index: 100;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.nav-item svg {
+    width: 22px;
+    height: 22px;
+    margin-bottom: 4px;
+}
+
+.nav-item.active { color: var(--accent-gold); }
+.nav-item.active svg { stroke: var(--accent-gold); }
+
+/* --- Modals & Overlays --- */
+.modal-overlay {
+    position: absolute; /* absolute inside app-container */
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    animation: fadeIn 0.3s forwards;
+}
+
+.modal-box {
+    background-color: var(--bg-secondary);
+    width: 85%;
+    max-width: 340px;
+    border-radius: var(--border-radius-lg);
+    padding: 20px;
+    box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+    transform: translateY(20px);
+    animation: slideUp 0.3s forwards;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.modal-header h3 { font-size: 18px; }
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.close-btn svg { width: 24px; height: 24px; }
+
+.fee-info {
+    text-align: center;
+    font-size: 13px;
+    margin-bottom: 15px;
+    color: var(--text-muted);
+}
+.fee-info strong { color: var(--accent-gold); }
+
+/* Match Size Buttons */
+.match-size-btn {
+    width: 100%;
+    background-color: var(--bg-tertiary);
+    border: 2px solid transparent;
+    color: white;
+    padding: 15px;
+    border-radius: var(--border-radius-md);
+    margin-bottom: 10px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: border 0.2s;
+}
+.match-size-btn span { font-weight: 700; font-size: 16px; }
+.match-size-btn small { opacity: 0.7; }
+.match-size-btn:hover, .match-size-btn:active {
+    border-color: var(--ludo-blue);
+}
+
+/* Radar Animation for Searching */
+.radar-spinner {
+    width: 60px; height: 60px;
+    border: 3px solid var(--bg-tertiary);
+    border-radius: 50%;
+    margin: 0 auto 15px auto;
+    position: relative;
+    overflow: hidden;
+}
+.radar-spinner::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 50%; height: 50%;
+    background: linear-gradient(45deg, transparent, var(--ludo-blue));
+    transform-origin: 0% 0%;
+    animation: radar 1.5s linear infinite;
+}
+@keyframes radar { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.cancel-btn {
+    background: transparent;
+    color: var(--ludo-red);
+    border: 1px solid var(--ludo-red);
+    padding: 8px 20px;
+    border-radius: 20px;
+    margin-top: 15px;
+    cursor: pointer;
+}
+
+/* Input Fields */
+.input-field {
+    width: 100%;
+    padding: 12px 15px;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--bg-tertiary);
+    color: var(--text-main);
+    border-radius: var(--border-radius-sm);
+    font-size: 16px;
+    outline: none;
+    text-transform: uppercase;
+}
+.input-field:focus { border-color: var(--ludo-blue); }
+
+.error-text {
+    color: var(--ludo-red);
+    font-size: 12px;
+    margin-top: 8px;
+    text-align: center;
+}
+
+/* Settings Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.stat-box {
+    background-color: var(--bg-primary);
+    padding: 12px 5px;
+    border-radius: var(--border-radius-sm);
+    text-align: center;
+}
+.stat-label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+.stat-box strong { font-size: 16px; }
+
+.logout-btn {
+    width: 100%;
+    padding: 12px;
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--ludo-red);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--border-radius-sm);
+    display: flex; justify-content: center; align-items: center;
+    font-weight: 700;
+    cursor: pointer;
+}
+.logout-btn svg { width: 18px; height: 18px; margin-right: 8px; }
+
+/* --- Toast Notification --- */
+.toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--bg-tertiary);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 1000;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    border-left: 4px solid var(--accent-gold);
+    animation: dropDown 0.3s forwards;
+}
+
+/* Keyframes */
+@keyframes fadeIn { to { opacity: 1; } }
+@keyframes slideUp { to { transform: translateY(0); } }
+@keyframes dropDown { 
+    0% { transform: translate(-50%, -20px); opacity: 0; } 
+    100% { transform: translate(-50%, 0); opacity: 1; } 
+}

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ludo Plus - Wallet & Payments</title>
+    <!-- Google Fonts for Premium Look -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Wallet Specific Styles */
+        .wallet-header {
+            display: flex; align-items: center; padding: 20px;
+            background: var(--bg-secondary); border-bottom: 1px solid var(--bg-tertiary);
+        }
+        .back-btn { background: none; border: none; color: var(--text-main); margin-right: 15px; cursor: pointer; }
+        
+        /* Balance Card */
+        .balance-card {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.05));
+            border: 1px solid var(--accent-gold);
+            margin: 20px; padding: 25px 20px; border-radius: var(--border-radius-lg);
+            text-align: center; box-shadow: 0 10px 25px rgba(245, 158, 11, 0.1);
+        }
+        .balance-title { font-size: 14px; color: var(--text-muted); font-weight: 600; letter-spacing: 1px; }
+        .balance-amount {
+            font-size: 42px; font-weight: 800; color: var(--accent-gold);
+            display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 5px;
+        }
+
+        /* Payment Flow Sections */
+        .flow-section { margin: 0 20px 20px 20px; background: var(--bg-secondary); padding: 20px; border-radius: var(--border-radius-lg); }
+        .section-title { font-size: 16px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        
+        /* Amount Grid */
+        .amount-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+        .amount-btn {
+            background: var(--bg-primary); border: 2px solid var(--bg-tertiary); color: var(--text-main);
+            padding: 12px 0; border-radius: var(--border-radius-md); font-weight: 700; cursor: pointer;
+            transition: all 0.2s; font-size: 14px;
+        }
+        .amount-btn.selected { border-color: var(--accent-gold); background: rgba(245, 158, 11, 0.1); color: var(--accent-gold); }
+        .custom-amount-wrapper { display: flex; align-items: center; background: var(--bg-primary); border: 1px solid var(--bg-tertiary); border-radius: var(--border-radius-md); overflow: hidden; margin-bottom: 15px; }
+        .custom-amount-wrapper span { padding: 15px; background: var(--bg-tertiary); font-weight: 700; }
+        .custom-input { flex: 1; background: transparent; border: none; color: white; padding: 15px; outline: none; font-size: 16px; font-weight: 600; }
+
+        /* QR Code Screen */
+        .qr-box { background: white; padding: 15px; border-radius: 10px; display: inline-block; margin: 15px 0; }
+        .qr-box img { width: 200px; height: 200px; object-fit: contain; }
+        .pay-exact { font-size: 22px; font-weight: 800; color: var(--ludo-green); margin-bottom: 10px; }
+
+        /* Transaction History */
+        .history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .tx-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--bg-primary); padding: 15px; border-radius: var(--border-radius-md);
+        }
+        .tx-left h4 { font-size: 14px; margin-bottom: 2px; }
+        .tx-left small { color: var(--text-muted); font-size: 11px; }
+        .tx-right { font-weight: 700; font-size: 16px; }
+        .tx-right.positive { color: var(--ludo-green); }
+        .tx-right.negative { color: var(--ludo-red); }
+        
+        .status-badge { font-size: 10px; padding: 3px 8px; border-radius: 10px; font-weight: bold; margin-left: 8px; }
+        .badge-pending { background: rgba(245, 158, 11, 0.2); color: var(--accent-gold); }
+    </style>
+</head>
+<body>
+
+    <!-- Full Screen Loader -->
+    <div id="wallet-loader" class="full-screen-loader hidden">
+        <div class="loading-spinner"></div>
+        <p id="loader-text" style="font-weight: 600; margin-top: 10px;">Loading Wallet...</p>
+    </div>
+
+    <div id="app-container" class="hidden">
+        
+        <!-- Header -->
+        <header class="wallet-header">
+            <button class="back-btn" onclick="window.location.href='index.html'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <h2 style="font-size: 18px;">My Wallet</h2>
+        </header>
+
+        <!-- Current Balance -->
+        <div class="balance-card">
+            <div class="balance-title">TOTAL COINS</div>
+            <div class="balance-amount">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="35" height="35"><circle cx="12" cy="12" r="10" fill="#FFD700" stroke="#B8860B"/><text x="12" y="16" font-size="12" font-weight="bold" fill="#B8860B" text-anchor="middle">₹</text></svg>
+                <span id="display-balance">0</span>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 1: SELECT AMOUNT                    -->
+        <!-- ========================================== -->
+        <div id="step-1-amount" class="flow-section">
+            <div class="section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                ADD BALANCE
+            </div>
+            
+            <div class="amount-grid">
+                <button class="amount-btn" data-amt="50">₹50</button>
+                <button class="amount-btn" data-amt="100">₹100</button>
+                <button class="amount-btn" data-amt="150">₹150</button>
+                <button class="amount-btn" data-amt="200">₹200</button>
+                <button class="amount-btn" data-amt="300">₹300</button>
+                <button class="amount-btn" data-amt="500">₹500</button>
+                <button class="amount-btn" data-amt="1000">₹1000</button>
+            </div>
+
+            <div class="custom-amount-wrapper">
+                <span>₹</span>
+                <input type="number" id="custom-amount-input" class="custom-input" placeholder="Custom Amount" min="50">
+            </div>
+
+            <button id="btn-continue-pay" class="action-btn primary-btn mt-10" style="justify-content: center; font-weight: bold;">
+                CONTINUE TO PAY
+            </button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 2: QR CODE SCAN                     -->
+        <!-- ========================================== -->
+        <div id="step-2-qr" class="flow-section hidden text-center">
+            <div class="section-title" style="justify-content: center;">SCAN & PAY</div>
+            <p style="color: var(--text-muted); font-size: 13px;">Pay exact amount to get coins instantly after approval.</p>
+            
+            <div class="qr-box">
+                <!-- Using local qr.png as requested in blueprint -->
+                <img src="qr.png" alt="Payment QR Code">
+            </div>
+
+            <div class="pay-exact">PAY EXACTLY: ₹<span id="qr-amount-display">0</span></div>
+
+            <button id="btn-i-have-paid" class="action-btn primary-btn mt-10" style="background: linear-gradient(135deg, var(--ludo-green), #059669); justify-content: center; font-weight: bold; width: 100%;">
+                I HAVE PAID
+            </button>
+            <button id="btn-cancel-qr" class="action-btn secondary-btn mt-10" style="justify-content: center; width: 100%;">
+                CANCEL
+            </button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 3: UTR SUBMISSION                   -->
+        <!-- ========================================== -->
+        <div id="step-3-utr" class="flow-section hidden">
+            <div class="section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                PAYMENT VERIFICATION
+            </div>
+            <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Enter the 12-digit UTR/Reference Number from your payment app (PhonePe, GPay, Paytm).</p>
+            
+            <input type="text" id="utr-input" class="input-field" placeholder="Enter UTR / Transaction ID" maxlength="20" style="margin-bottom: 15px; font-weight: bold; letter-spacing: 1px;">
+            
+            <button id="btn-submit-utr" class="action-btn primary-btn" style="justify-content: center; font-weight: bold; width: 100%;">
+                SUBMIT UTR
+            </button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TRANSACTION HISTORY LOG                    -->
+        <!-- ========================================== -->
+        <div class="flow-section">
+            <div class="section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                TRANSACTION HISTORY
+            </div>
+            
+            <div class="history-list" id="tx-history-list">
+                <!-- Data populated by JS. Example format: -->
+                <!-- 
+                <div class="tx-item">
+                    <div class="tx-left">
+                        <h4>MATCH WIN</h4>
+                        <small>Today, 10:30 AM</small>
+                    </div>
+                    <div class="tx-right positive">+80</div>
+                </div> 
+                -->
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="index.html" class="nav-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                <span>Home</span>
+            </a>
+            <a href="wallet.html" class="nav-item active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                <span>Wallet</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="notification-toast" class="toast hidden">
+        <span id="toast-message">Notification</span>
+    </div>
+
+    <!-- Core Scripts -->
+    <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="wallet.js"></script>
+</body>
+</html>

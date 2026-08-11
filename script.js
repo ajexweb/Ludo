@@ -133,7 +133,7 @@ document.querySelectorAll('.match-size-btn').forEach(btn => {
     });
 });
 
-// --- Global Matchmaking Logic ---
+// --- Global Matchmaking Logic (UPDATED FOR CLIENT-SIDE SYNC) ---
 function startGlobalMatchmaking(players) {
     showModal('modal-searching');
     let seconds = 0;
@@ -145,29 +145,105 @@ function startGlobalMatchmaking(players) {
         timerElement.innerText = `00:${seconds < 10 ? '0' + seconds : seconds}`;
     }, 1000);
 
-    // Path for matchmaking queue
-    const queueRef = ref(db, `matchmaking/${players}_players/${currentUser.uid}`);
+    const queueRef = ref(db, `matchmaking/${players}_players`);
+    const myQueueRef = ref(db, `matchmaking/${players}_players/${currentUser.uid}`);
     
-    const requestData = {
+    const myData = {
         uid: currentUser.uid,
         playerId: userData.playerId,
         username: userData.username,
         timestamp: serverTimestamp()
     };
 
-    set(queueRef, requestData).then(() => {
-        // Remove from queue if user disconnects while searching
-        onDisconnect(queueRef).remove();
+    // 1. Check if there are players already waiting
+    get(queueRef).then((snapshot) => {
+        let matchedPlayers = [];
+        let needed = parseInt(players) - 1; // 2P ke liye 1 aur chahiye, 4P ke liye 3
 
-        // Listen for match found (Backend/Admin Engine will create match and set matchId here)
-        onValue(queueRef, (snapshot) => {
-            const data = snapshot.val();
+        if (snapshot.exists()) {
+            const allWaiting = snapshot.val();
+            for (let uid in allWaiting) {
+                // Khud ko ignore karo, aur unko lo jinka match abhi nahi bana hai
+                if (uid !== currentUser.uid && !allWaiting[uid].matchId) {
+                    matchedPlayers.push({ uid: uid, ...allWaiting[uid] });
+                    if (matchedPlayers.length === needed) break; // Zaroorat poori ho gayi
+                }
+            }
+        }
+
+        if (matchedPlayers.length === needed) {
+            // Main Matchmaker ban gaya! (2sra player match create karega)
+            const newMatchId = `GM${Date.now()}`; // GM = Global Match
+            let matchPlayers = {};
+
+            // Colors assign karo
+            const colors = players == 2 ? ['RED', 'BLUE'] : ['RED', 'BLUE', 'GREEN', 'GRAY'];
+
+            // Khud ko RED do
+            matchPlayers[currentUser.uid] = {
+                playerId: userData.playerId,
+                username: userData.username,
+                color: colors[0],
+                isReady: true
+            };
+
+            // Baaki waiting players ko add karo
+            matchedPlayers.forEach((p, index) => {
+                matchPlayers[p.uid] = {
+                    playerId: p.playerId,
+                    username: p.username,
+                    color: colors[index + 1],
+                    isReady: true
+                };
+            });
+
+            // Tokens setup (-1 matlab base mein)
+            const tokens = {};
+            Object.values(matchPlayers).forEach(p => {
+                tokens[p.color] = [-1, -1, -1, -1];
+            });
+
+            const matchData = {
+                id: newMatchId,
+                type: players + 'P',
+                status: 'PLAYING',
+                players: matchPlayers,
+                tokens: tokens,
+                currentTurn: 'RED',
+                diceValue: 0,
+                winner: null,
+                createdAt: serverTimestamp()
+            };
+
+            // Firebase me match create karo
+            set(ref(db, `matches/${newMatchId}`), matchData).then(() => {
+                // Ab sab waiting players ki profile me matchId daal do taaki wo game me redirect ho jayein
+                let updates = {};
+                updates[`${currentUser.uid}/matchId`] = newMatchId;
+                matchedPlayers.forEach(p => {
+                    updates[`${p.uid}/matchId`] = newMatchId;
+                });
+                update(queueRef, updates);
+            });
+
+        } else {
+            // Agar koi nahi mila, to apni detail queue me daal do aur wait karo
+            set(myQueueRef, myData).then(() => {
+                onDisconnect(myQueueRef).remove(); // Net band hone pe queue se hat jayega
+            });
+        }
+
+        // 2. Apni profile listen karo (Jaise hi koi matchId set karega, redirect ho jayenge)
+        onValue(myQueueRef, (snap) => {
+            const data = snap.val();
             if (data && data.matchId) {
-                // Match Found!
                 clearInterval(searchTimeout);
                 document.getElementById('search-status-text').innerText = "Match Found! Connecting...";
                 document.getElementById('search-status-text').classList.add('text-green');
                 
+                // Queue se apna naam hata lo taaki dobara match na bane
+                remove(myQueueRef); 
+
                 // Redirect to Game Engine
                 setTimeout(() => {
                     window.location.href = `game.html?matchId=${data.matchId}`;
@@ -177,7 +253,7 @@ function startGlobalMatchmaking(players) {
     });
 }
 
-// Cancel Search
+// Cancel Search Button
 document.getElementById('btn-cancel-search').addEventListener('click', () => {
     clearInterval(searchTimeout);
     document.getElementById('search-timer').innerText = "00:00";

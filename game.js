@@ -1,5 +1,5 @@
 // ==========================================
-// LUDO PLUS - MASTER GAME ENGINE (FIXED)
+// LUDO PLUS - MASTER GAME ENGINE (PREMIUM UI & FAST SYNC)
 // ==========================================
 
 import { auth, db } from './firebase-config.js';
@@ -16,14 +16,13 @@ const matchId = urlParams.get('matchId');
 let isHost = false;
 let myColor = null;
 let gameState = null;
-let localTurnProcessed = false;
 
 // --- Ludo Board Math (15x15 Grid mapped to X,Y) ---
 const MAIN_PATH = [
-    [6,13], [6,12], [6,11], [6,10], [6,9], [5,8], [4,8], [3,8], [2,8], [1,8], [0,8], [0,7], [0,6], 
-    [1,6], [2,6], [3,6], [4,6], [5,6], [6,5], [6,4], [6,3], [6,2], [6,1], [6,0], [7,0], [8,0],    
-    [8,1], [8,2], [8,3], [8,4], [8,5], [9,6], [10,6], [11,6], [12,6], [13,6], [14,6], [14,7], [14,8], 
-    [13,8], [12,8], [11,8], [10,8], [9,8], [8,9], [8,10], [8,11], [8,12], [8,13], [8,14], [7,14], [6,14] 
+    [6,13], [6,12], [6,11], [6,10], [6,9], [5,8], [4,8], [3,8], [2,8], [1,8], [0,8], [0,7], [0,6], // Red to Green
+    [1,6], [2,6], [3,6], [4,6], [5,6], [6,5], [6,4], [6,3], [6,2], [6,1], [6,0], [7,0], [8,0],    // Green to Gray
+    [8,1], [8,2], [8,3], [8,4], [8,5], [9,6], [10,6], [11,6], [12,6], [13,6], [14,6], [14,7], [14,8], // Gray to Blue
+    [13,8], [12,8], [11,8], [10,8], [9,8], [8,9], [8,10], [8,11], [8,12], [8,13], [8,14], [7,14], [6,14] // Blue to Red
 ];
 
 const HOME_PATHS = {
@@ -36,21 +35,47 @@ const HOME_PATHS = {
 const START_INDEX = { RED: 0, GREEN: 13, GRAY: 26, BLUE: 39 };
 const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
 
+// Exact math to place tokens visually inside the 4 circles of home base
 const HOME_BASES = {
-    RED: [[2,11], [3,11], [2,12], [3,12]],
-    BLUE: [[11,11], [12,11], [11,12], [12,12]],
-    GREEN: [[2,2], [3,2], [2,3], [3,3]],
-    GRAY: [[11,2], [12,2], [11,3], [12,3]]
+    RED: [[2,10.5], [3.5,10.5], [2,12], [3.5,12]],
+    BLUE: [[10.5,10.5], [12,10.5], [10.5,12], [12,12]],
+    GREEN: [[2,2], [3.5,2], [2,3.5], [3.5,3.5]],
+    GRAY: [[10.5,2], [12,2], [10.5,3.5], [12,3.5]]
 };
 
 const TURN_SEQUENCE_4P = ['RED', 'GREEN', 'GRAY', 'BLUE'];
 const TURN_SEQUENCE_2P = ['RED', 'BLUE'];
 
-// --- DOM Elements (FIXED: appContainer added) ---
+// --- DOM Elements ---
 const appContainer = document.getElementById('app-container'); 
 const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen = document.getElementById('game-screen');
 const gameLoader = document.getElementById('game-loader');
+
+// --- Inject Dynamic Game UI Styles (Smooth Animations & Board Graphics) ---
+const boardStyles = document.createElement('style');
+boardStyles.innerHTML = `
+    .ludo-cell { border: 1px solid rgba(0,0,0,0.1); box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .bg-safe { background-image: radial-gradient(circle, rgba(0,0,0,0.1) 20%, transparent 60%); }
+    .goti { 
+        position: absolute; width: 5.5%; height: 5.5%; border-radius: 50%; 
+        border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.4); 
+        transition: top 0.35s ease-in-out, left 0.35s ease-in-out; /* SMOOTH MOVEMENT */
+        z-index: 20; cursor: pointer; transform: translate(-50%, -50%);
+    }
+    .base-container { position: absolute; width: 40%; height: 40%; padding: 6%; box-sizing: border-box; border: 1px solid rgba(0,0,0,0.2); }
+    .base-inner { width: 100%; height: 100%; background: white; border-radius: 15px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 15%; padding: 15%; box-sizing: border-box; box-shadow: inset 0 0 10px rgba(0,0,0,0.2); }
+    .base-circle { width: 100%; height: 100%; border-radius: 50%; border: 2px solid rgba(0,0,0,0.1); }
+    
+    /* Center Home Polygon */
+    .center-home {
+        position: absolute; top: 40%; left: 40%; width: 20%; height: 20%;
+        border-style: solid; border-width: calc(100% / 1.5); box-sizing: border-box;
+        border-color: var(--ludo-gray) var(--ludo-blue) var(--ludo-red) var(--ludo-green);
+    }
+`;
+document.head.appendChild(boardStyles);
+
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -76,12 +101,12 @@ function fetchUserData() {
 }
 
 // ==========================================
-// 1. LOBBY SYSTEM (ROOMS)
+// 1. LOBBY SYSTEM
 // ==========================================
 function initLobby() {
     gameLoader.classList.add('hidden');
     lobbyScreen.classList.remove('hidden');
-    appContainer.classList.remove('hidden'); // Ye pehle crash kar raha tha
+    appContainer.classList.remove('hidden');
     document.getElementById('lobby-room-id').innerText = roomId;
 
     const roomRef = ref(db, `rooms/${roomId}`);
@@ -203,11 +228,11 @@ function startMatchExecution() {
 }
 
 // ==========================================
-// 3. GAME ENGINE & SYNC
+// 3. GAME ENGINE & SYNC (FAST REALTIME)
 // ==========================================
 function initMatchSync(mId) {
     appContainer.classList.remove('hidden');
-    drawBoardGrid();
+    drawVisualBoard(); // Draw the beautiful board once
 
     const matchRef = ref(db, `matches/${mId}`);
     
@@ -226,7 +251,7 @@ function initMatchSync(mId) {
         document.getElementById('game-match-id').innerText = `#${mId.substring(0,8)}`;
 
         updatePlayersUI();
-        renderTokensOnBoard();
+        updateTokensOptimized(); // Uses CSS transitions for smooth sliding
         handleTurnUI();
         
         if(data.winner && data.winner === myColor) {
@@ -257,32 +282,70 @@ function deductEntryFeeOnce(mId) {
 }
 
 // ==========================================
-// 4. BOARD RENDERER
+// 4. BEAUTIFUL BOARD RENDERER (IMAGE-LIKE)
 // ==========================================
-function drawBoardGrid() {
+function drawVisualBoard() {
     const board = document.getElementById('ludo-board');
     board.innerHTML = '';
+    board.style.backgroundColor = 'white';
+    board.style.position = 'relative';
     
+    // Draw 15x15 Grid Cells
     for(let r = 0; r < 15; r++) {
         for(let c = 0; c < 15; c++) {
             const cell = document.createElement('div');
-            cell.id = `cell-${c}-${r}`;
-            cell.style.border = '1px solid #ddd';
-            cell.style.position = 'relative';
+            cell.className = 'ludo-cell';
             
-            if(r < 6 && c < 6) cell.style.backgroundColor = 'var(--ludo-green)';
-            if(r < 6 && c > 8) cell.style.backgroundColor = 'var(--ludo-gray)';
-            if(r > 8 && c < 6) cell.style.backgroundColor = 'var(--ludo-red)';
-            if(r > 8 && c > 8) cell.style.backgroundColor = 'var(--ludo-blue)';
+            // Home Paths (Colored)
+            if (c == 7 && r >= 9 && r <= 13) cell.style.backgroundColor = 'var(--ludo-red)';
+            if (r == 7 && c >= 9 && c <= 13) cell.style.backgroundColor = 'var(--ludo-blue)';
+            if (r == 7 && c >= 1 && c <= 5) cell.style.backgroundColor = 'var(--ludo-green)';
+            if (c == 7 && r >= 1 && r <= 5) cell.style.backgroundColor = 'var(--ludo-gray)';
 
-            if(r > 5 && r < 9 && c > 5 && c < 9) cell.style.backgroundColor = '#222';
+            // Start Zones (Colored)
+            if (c == 6 && r == 13) cell.style.backgroundColor = 'var(--ludo-red)';
+            if (c == 13 && r == 8) cell.style.backgroundColor = 'var(--ludo-blue)';
+            if (c == 1 && r == 6) cell.style.backgroundColor = 'var(--ludo-green)';
+            if (c == 8 && r == 1) cell.style.backgroundColor = 'var(--ludo-gray)';
 
+            // Safe Zones indicator (Star/Shadow)
             const isSafe = SAFE_ZONES.some(index => MAIN_PATH[index][0] === c && MAIN_PATH[index][1] === r);
-            if(isSafe) cell.style.backgroundColor = '#e2e8f0';
+            if(isSafe) cell.classList.add('bg-safe');
 
             board.appendChild(cell);
         }
     }
+
+    // Overlay Corner Bases (Green, Gray, Red, Blue)
+    const basePositions = [
+        { color: 'GREEN', class: 'bg-green', top: '0%', left: '0%' },
+        { color: 'GRAY', class: 'bg-gray', top: '0%', left: '60%' },
+        { color: 'RED', class: 'bg-red', top: '60%', left: '0%' },
+        { color: 'BLUE', class: 'bg-blue', top: '60%', left: '60%' }
+    ];
+
+    basePositions.forEach(base => {
+        const baseDiv = document.createElement('div');
+        baseDiv.className = `base-container ${base.class}`;
+        baseDiv.style.top = base.top;
+        baseDiv.style.left = base.left;
+        
+        // Inner white box and 4 circles
+        baseDiv.innerHTML = `
+            <div class="base-inner">
+                <div class="base-circle ${base.class}"></div>
+                <div class="base-circle ${base.class}"></div>
+                <div class="base-circle ${base.class}"></div>
+                <div class="base-circle ${base.class}"></div>
+            </div>
+        `;
+        board.appendChild(baseDiv);
+    });
+
+    // Overlay Center Triangle Finish
+    const centerHome = document.createElement('div');
+    centerHome.className = 'center-home';
+    board.appendChild(centerHome);
 }
 
 function updatePlayersUI() {
@@ -290,14 +353,13 @@ function updatePlayersUI() {
     colors.forEach(c => {
         const pDetails = Object.values(gameState.players).find(p => p.color === c);
         const nameEl = document.getElementById(`name-${c.toLowerCase()}`);
-        if(nameEl) {
-            nameEl.innerText = pDetails ? pDetails.username : '---';
-        }
+        if(nameEl) nameEl.innerText = pDetails ? pDetails.username : '---';
     });
 }
 
-function renderTokensOnBoard() {
-    document.querySelectorAll('.goti').forEach(e => e.remove());
+// --- OPTIMIZED SMOOTH TOKEN RENDERING ---
+function updateTokensOptimized() {
+    const board = document.getElementById('ludo-board');
 
     Object.keys(gameState.tokens).forEach(color => {
         const positions = gameState.tokens[color];
@@ -305,41 +367,50 @@ function renderTokensOnBoard() {
         positions.forEach((pos, idx) => {
             let x, y;
             if (pos === -1) {
+                // In Base
                 x = HOME_BASES[color][idx][0];
                 y = HOME_BASES[color][idx][1];
             } else if (pos < 52) {
+                // On Board Path
                 let actualIndex = (START_INDEX[color] + pos) % 52;
                 x = MAIN_PATH[actualIndex][0];
                 y = MAIN_PATH[actualIndex][1];
             } else if (pos < 58) {
+                // Inside Home Finish Line
                 let homeIdx = pos - 52;
                 x = HOME_PATHS[color][homeIdx][0];
                 y = HOME_PATHS[color][homeIdx][1];
             } else {
-                return;
+                return; // Finished
             }
 
-            const cell = document.getElementById(`cell-${x}-${y}`);
-            if (cell) {
-                const token = document.createElement('div');
-                token.className = `goti bg-${color.toLowerCase()}`;
-                token.style.width = '70%';
-                token.style.height = '70%';
-                token.style.borderRadius = '50%';
-                token.style.position = 'absolute';
-                token.style.top = '15%';
-                token.style.left = '15%';
-                token.style.border = '2px solid white';
-                token.style.boxShadow = '0 2px 4px rgba(0,0,0,0.5)';
-                token.style.cursor = 'pointer';
-                token.style.zIndex = 10;
-                
-                if (gameState.currentTurn === myColor && color === myColor && gameState.diceValue > 0) {
-                    token.style.boxShadow = '0 0 10px #FFF';
-                    token.onclick = () => handleTokenMove(color, idx, pos);
-                }
-                
-                cell.appendChild(token);
+            // Calculate precise percentage coordinates
+            const leftPercent = (x * (100 / 15)) + (100 / 30); // Center of cell
+            const topPercent = (y * (100 / 15)) + (100 / 30);  // Center of cell
+
+            // Check if token exists, update its position smoothly
+            let tokenEl = document.getElementById(`token-${color}-${idx}`);
+            if (!tokenEl) {
+                tokenEl = document.createElement('div');
+                tokenEl.id = `token-${color}-${idx}`;
+                tokenEl.className = `goti bg-${color.toLowerCase()}`;
+                board.appendChild(tokenEl);
+            }
+
+            // Triggers CSS transition for smooth glide
+            tokenEl.style.left = `${leftPercent}%`;
+            tokenEl.style.top = `${topPercent}%`;
+
+            // Reset interactions
+            tokenEl.onclick = null;
+            tokenEl.style.boxShadow = '0 4px 6px rgba(0,0,0,0.4)';
+            tokenEl.style.zIndex = (pos === -1) ? 10 : 20;
+            
+            // Highlight and enable click if it's my turn
+            if (gameState.currentTurn === myColor && color === myColor && gameState.diceValue > 0) {
+                tokenEl.style.boxShadow = '0 0 15px #FFF, 0 0 5px #FFF';
+                tokenEl.style.zIndex = 30;
+                tokenEl.onclick = () => handleTokenMove(color, idx, pos);
             }
         });
     });
@@ -396,7 +467,7 @@ function rollDice() {
             diceValue: finalDice,
             lastAction: serverTimestamp()
         }).then(() => {
-            setTimeout(() => checkMovePossibility(finalDice), 500);
+            setTimeout(() => checkMovePossibility(finalDice), 400); // Fast feedback
         });
     });
 }
@@ -411,8 +482,8 @@ function checkMovePossibility(dice) {
     });
 
     if (!canMove) {
-        alert("No valid moves! Turn passed.");
-        setTimeout(passTurn, 1000);
+        window.showToast("No valid moves! Turn passed.");
+        setTimeout(passTurn, 800);
     }
 }
 
@@ -447,7 +518,7 @@ function handleTokenMove(color, tIndex, currentPos) {
                             let otherGlobalPos = (START_INDEX[otherCol] + otherPos) % 52;
                             if (otherGlobalPos === globalNewPos) {
                                 captured = true;
-                                return -1; 
+                                return -1; // Send back to base (smooth glide back)
                             }
                         }
                         return otherPos;
@@ -484,6 +555,12 @@ function getNextTurn(current) {
     return seq[(idx + 1) % seq.length];
 }
 
+function getNextTurn(current) {
+    const seq = gameState.type === '4P' ? TURN_SEQUENCE_4P : TURN_SEQUENCE_2P;
+    let idx = seq.indexOf(current);
+    return seq[(idx + 1) % seq.length];
+}
+
 function passTurn() {
     update(ref(db, `matches/${matchId}`), {
         diceValue: 0,
@@ -503,7 +580,7 @@ function processWinReward(winnerColor) {
                 reference: matchId,
                 timestamp: serverTimestamp()
             });
-            alert("Victory! +80 Coins added.");
+            window.showToast("Victory! +80 Coins added.");
         });
     }
 }
